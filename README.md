@@ -1,4 +1,4 @@
-## 1. Registry handshake
+## Registry handshake
 
 ```bash
 curl -i http://localhost:5000/v2/
@@ -13,7 +13,7 @@ Docker-Distribution-API-Version: registry/2.0
 
 ---
 
-## 2. Start an upload
+## Start an upload
 
 ```bash
 curl -i \
@@ -33,7 +33,7 @@ Docker-Distribution-API-Version: registry/2.0
 ```
 
 
-## 3. Store the upload UUID
+## Store the upload UUID
 
 ```bash
 UUID=$(curl -is \
@@ -45,7 +45,7 @@ echo "$UUID"
 ```
 
 
-## 4. Verify the upload directory exists
+## Verify the upload directory exists
 
 If you're using the default local storage:
 
@@ -68,7 +68,7 @@ uploads/
 ```
 
 
-## 5. Stress test upload creation
+## Stress test upload creation
 
 Create ten upload sessions:
 
@@ -90,7 +90,7 @@ find ./registry/uploads -maxdepth 1 -type d | wc -l
 (or replace `./registry` with your configured root.)
 
 
-## 6. Verbose request
+## Verbose request
 
 Useful while developing:
 

@@ -1,6 +1,9 @@
+#![allow(unused)]
+
 mod error;
 mod handlers;
 mod router;
+mod session;
 mod state;
 mod storage;
 
@@ -25,6 +28,8 @@ async fn main() -> anyhow::Result<()> {
         std::env::var("DATABRICKS_TOKEN")?,
         std::env::var("DATABRICKS_VOLUME")?,
     ));
+
+    storage.initialize().await?;
 
     let state = AppState { storage };
 

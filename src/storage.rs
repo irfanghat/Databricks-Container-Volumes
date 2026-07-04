@@ -6,6 +6,8 @@ use reqwest::{
 };
 use uuid::Uuid;
 
+use crate::session::UploadSession;
+
 pub struct VolumeStorage {
     client: Client,
     workspace_url: String,
@@ -115,12 +117,64 @@ impl VolumeStorage {
     // ------------------------------------------------------------------------
     //
 
-    pub async fn create_upload(&self) -> Result<Uuid> {
+    pub async fn get_session(&self, id: &Uuid) -> Result<UploadSession> {
+        let path = format!("uploads/{id}/session.json");
+        let resp = self.download_file(&path).await?;
+        let bytes = resp.bytes().await?;
+        let session = serde_json::from_slice(&bytes)?;
+        Ok(session)
+    }
+
+    pub async fn update_session(&self, session: &UploadSession) -> Result<()> {
+        let json = serde_json::to_vec_pretty(session)?;
+        self.upload_file(
+            &format!("uploads/{}/session.json", session.id),
+            Bytes::from(json),
+        )
+        .await?;
+        Ok(())
+    }
+
+    pub async fn create_upload(&self, repository: &str) -> Result<Uuid> {
         let id = Uuid::new_v4();
 
         self.create_directory(&format!("uploads/{id}")).await?;
 
+        let session = UploadSession {
+            id,
+            repository: repository.to_string(),
+            offset: 0,
+        };
+
+        let json = serde_json::to_vec_pretty(&session)?;
+
+        self.upload_file(&format!("uploads/{id}/session.json"), Bytes::from(json))
+            .await?;
+
         Ok(id)
+    }
+
+    pub async fn commit_upload(&self, id: &Uuid, digest: &str) -> Result<()> {
+        let upload_path = self.upload_path(id);
+        let blob_path = self.blob_path(digest);
+
+        let resp = self.download_file(&upload_path).await?;
+        let bytes = resp.bytes().await?;
+
+        // Ensure parent dirs for blob path exist
+        let hash = digest.trim_start_matches("sha256:");
+        self.create_directory(&format!("blobs/sha256/{}", &hash[..2]))
+            .await?;
+
+        self.upload_file(&blob_path, bytes).await?;
+
+        // Cleanup
+        let _ = self.delete_file(&upload_path).await;
+        let _ = self
+            .delete_file(&format!("uploads/{id}/session.json"))
+            .await;
+
+        Ok(())
     }
 
     pub fn upload_path(&self, id: &Uuid) -> String {
@@ -135,5 +189,14 @@ impl VolumeStorage {
 
     pub fn manifest_path(&self, repo: &str, reference: &str) -> String {
         format!("repositories/{}/manifests/{}.json", repo, reference,)
+    }
+
+    pub async fn initialize(&self) -> Result<()> {
+        self.create_directory("uploads").await?;
+        self.create_directory("blobs").await?;
+        self.create_directory("blobs/sha256").await?;
+        self.create_directory("repositories").await?;
+
+        Ok(())
     }
 }
